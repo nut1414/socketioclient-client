@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Socket.IO Client</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+	</head>
+	<body class="flex flex-col max-h-screen max-w-screen bg-black">
+		<script src="https://cdn.socket.io/4.5.0/socket.io.min.js" integrity="sha384-7EyYLQZgWBi67fBtVxw60/OWl1kjsfrPFcaU0pp0nAh+i8FD068QogUvg85Ewy1k" crossorigin="anonymous"></script>
+		
+		<div class="bg-white flex justify-between items-center">
+			<form id="formconnect" action="">
+				<input id="url" type="text" placeholder="url" class="m-3 p-2 rounded-full ring ring-slate-500"/>
+				<input id="connect" type="submit" value="Connect" class="m-3 p-1 rounded-full ring-2 ring-slate-500 hover:bg-green-400 hover:text-white"/>
+			</form>
+			<div class="justify-">
+				<button onclick="location.reload()" class="m-3 p-1 rounded-full ring-2 ring-slate-500 ">Reload Page</button>
+				<button onclick="document.getElementById('terminal').innerHTML = ''" class="m-3 p-1 rounded-full ring-2 ring-slate-500 ">Clear Terminal</button>
+			</div>
+			<form id="form" action="">
+				<input id="event" type="text" placeholder="event" class="m-3 p-2 rounded-full ring ring-slate-500"/>
+				<input id="msg" type="text" placeholder="message" class="m-3 p-2 rounded-full ring ring-slate-500"/>
+				<input id="eventSend" type="submit" value="Submit" class="m-3 p-1 rounded-full ring-2 ring-slate-500 disabled:opacity-25 text-purple-500 hover:bg-purple-500 hover:text-white" disabled/>
+			</form>
+		</div>
+		<div id="terminal" class="flex-1 max-h-full max-w-screen font-mono bg-black text-white overflow-scroll"></div>
+		
+		
+		<script>
+			var formconnect = document.getElementById('formconnect')
+			var urlInput = document.getElementById('url')
+			var connectInput = document.getElementById('connect')
+			var form = document.getElementById('form')
+			var msgInput = document.getElementById('msg')
+			var eventInput = document.getElementById('event')
+			var eventSendInput = document.getElementById('eventSend')
+			var terminal = document.getElementById('terminal')
+			var socket = null
+			
+			function addZero(i) {
+			  if (i < 10) {i = "0" + i}
+			  return i;
+			}
+			
+			function textClock() {
+				const d = new Date();
+				return `[${addZero(d.getHours())}:${addZero(d.getMinutes())}:${addZero(d.getSeconds())}] `
+			}
+			
+			function toClockTerm(data, style, icon, safe=true){
+				var newText = document.createElement('div')
+				newText.setAttribute('class', 'flex items-center break-all inline-block p-1 ' + style)
+				if( safe === true ) {
+					var texta = document.createTextNode(textClock() + data)
+					var icona = document.createElement('div')
+					icona.innerHTML = icon
+					newText.appendChild(icona)
+					newText.appendChild(texta)
+					terminal.appendChild(newText)
+				} else {
+					newText.innerHTML = icon + textClock() + data
+					terminal.appendChild(newText)
+				}
+				
+			}
+			
+			function termLog(text,safe=true) {
+				var style = 'text-white bg-black'
+				var newIcon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg>'
+				toClockTerm(text, style, newIcon, safe)
+			}
+			
+			function termLogIn(text,safe=true) {
+				var style = 'text-white bg-black'
+				var newIcon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5  mr-1" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1zm7.707 3.293a1 1 0 010 1.414L9.414 9H17a1 1 0 110 2H9.414l1.293 1.293a1 1 0 01-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>'
+				toClockTerm(text, style, newIcon, safe)
+			}
+			
+			function termLogOut(text,safe=true) {
+				var style = 'text-white bg-black'
+				var newIcon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd" /></svg>'
+				toClockTerm(text, style, newIcon, safe)
+			}
+			
+			function termError(text,safe=true) {
+				var style = 'text-white bg-red-600'
+				var newIcon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>'
+				toClockTerm(text, style, newIcon, safe)
+			}
+			
+			function termWarn(text,safe=true) {
+				var style = 'text-white bg-yellow-600'
+				var newIcon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>'
+				toClockTerm(text, style, newIcon, safe)
+			}
+			
+			function termSuccess(text,safe=true) {
+				var style = 'text-white bg-green-600'
+				var newIcon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>'
+				toClockTerm(text, style, newIcon, safe)
+			}
+			
+			function createHandler(socket) {
+				socket.on('connect', () => {
+					termSuccess(`Connected to ${urlInput.value}`)
+				})
+				socket.on('connect_error', () => {
+					termError('Connection Error. Wait or reload the page and connect again.')
+					setTimeout(() => {socket.connect()}, 1000)
+				})
+				socket.on('disconnected', () => {
+					termWarn('Disconnected.')
+				})
+				socket.onAny((eventName, msg) => {
+					termLogIn(`In.  event/msg: ${eventName || ""}/${msg || ""}`)
+					terminal.scrollTop = terminal.scrollHeight
+				})
+			}
+			
+			formconnect.addEventListener('submit', (e) => {
+				e.preventDefault()
+				try{
+					if (new URL(urlInput.value)) {
+						var connectSocket = io(new URL(urlInput.value).toString())
+						socket = connectSocket
+						eventSendInput.disabled = false
+						urlInput.disabled = true
+						connectInput.disabled = true
+						createHandler(connectSocket)
+					}
+				} catch(e){
+					termError('Invalid URL.')
+				}
+			})
+			
+			form.addEventListener('submit', (e) => {
+				e.preventDefault()
+				if (eventSendInput.value && socket.connected) {
+					termLogOut(`Out. event/msg: ${eventInput.value}/${msgInput.value}`)
+					terminal.scrollTop = terminal.scrollHeight
+					socket.emit(eventInput.value, msgInput.value)
+				}else {
+					termError('Please connect to a server first.')
+				}
+			  })
+			  
+			termLog('Socket.io-client Client v0.1')
+			termLog('Github:&nbsp;<a href="https://github.com/nut1414" class="underline decoration-white">https://github.com/nut1414</a>',safe=false)
+		</script>
+	</body>
+</html>
